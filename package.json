@@ -1,0 +1,17 @@
+{
+  "name": "wiranlaya-echo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "วิรัลยา: เสียงสะท้อน — เกม RPG แฟนตาซีเวทมนตร์ภาษาไทยแบบ Audio-First สำหรับผู้พิการทางสายตา",
+  "type": "module",
+  "scripts": {
+    "start": "node server/dev-server.mjs",
+    "dev": "node server/dev-server.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "lint": "node --check server/dev-server.mjs && node tools/check-syntax.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

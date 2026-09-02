@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>วิรัลยา: เสียงสะท้อน — เกม RPG เวทมนตร์แบบฟังด้วยหู</title>
+  <meta name="description" content="เกม RPG แฟนตาซีเวทมนตร์ภาษาไทยแบบ Audio-First ออกแบบเพื่อผู้พิการทางสายตา เล่นด้วยเสียงพูด มีเสียงสามมิติ ระบบสั่น และคำบรรยายเต็มรูปแบบ">
+  <meta name="color-scheme" content="dark light">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🔔</text></svg>">
+</head>
+<body>
+  <a class="skip-link" href="#command-input">ข้ามไปที่ช่องพิมพ์คำสั่ง</a>
+
+  <!-- หน้าจอเริ่มต้น: ต้องมีการกดหนึ่งครั้งก่อน เบราว์เซอร์จึงยอมให้เล่นเสียง -->
+  <div id="start-screen" class="start-screen">
+    <h1>วิรัลยา: เสียงสะท้อน</h1>
+    <p class="tagline">เกมเวทมนตร์ที่เล่นด้วยการฟังและการพูด</p>
+    <p class="intro-text">
+      โลกกำลังเงียบลงทีละเสียง ระฆังทั้งสามใบหยุดดัง และคุณคือผู้ฟังคนสุดท้าย
+      ภูตนำทางชื่อ “วิสป์” จะอยู่ข้างหูซ้ายของคุณตลอดการเดินทาง
+    </p>
+    <button id="start-button" class="big-button" type="button">เริ่มการเดินทาง</button>
+    <ul class="start-tips">
+      <li>แนะนำให้ใส่หูฟังสเตอริโอ เพื่อให้ได้ยินทิศทางของเสียงได้ชัดเจน</li>
+      <li>กดปุ่มเว้นวรรคค้างไว้แล้วพูดคำสั่งภาษาไทย เช่น “เดินหน้า” “สำรวจ” “เพลิงกังวาน”</li>
+      <li>ถ้าไม่สะดวกใช้เสียง เล่นด้วยแป้นพิมพ์หรือช่องพิมพ์คำสั่งได้ทุกอย่าง</li>
+      <li>ผู้พิการทางการได้ยิน: เกมมีคำบรรยายทุกเสียง เรดาร์บอกทิศ และรูปแบบการสั่น</li>
+    </ul>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <h1 class="title">วิรัลยา: เสียงสะท้อน</h1>
+      <div class="topbar-actions">
+        <span id="mic-state" class="pill" data-state="idle" role="status">กดค้างเพื่อพูด</span>
+        <button id="help-button" type="button" class="ghost">ช่วยเหลือ</button>
+        <button id="save-button" type="button" class="ghost">บันทึก</button>
+        <button id="load-button" type="button" class="ghost">โหลด</button>
+        <button id="settings-button" type="button" class="ghost" aria-expanded="false" aria-controls="settings-panel">ตั้งค่า</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="stage" aria-label="สภาพแวดล้อมรอบตัว">
+        <h2 id="room-name">ลานระฆังหมู่บ้านกังวาน</h2>
+        <p id="facing" class="muted">หันหน้าไปทางเหนือ</p>
+        <canvas id="radar" width="260" height="260" role="img"
+                aria-label="เรดาร์แสดงทิศทางของทางออก จุดสังเกต และศัตรูรอบตัว"></canvas>
+        <div id="haptic-view" class="haptic-view" aria-label="รูปแบบการสั่นล่าสุด" role="status"></div>
+        <div id="enemy-panel" class="enemy-panel" hidden role="status"></div>
+      </section>
+
+      <section class="captions-pane" aria-label="คำบรรยาย">
+        <h2>คำบรรยาย</h2>
+        <div class="caption-scroll">
+          <ul id="caption-list" class="caption-list" role="log" aria-live="polite" aria-relevant="additions text"></ul>
+        </div>
+        <p id="heard" class="heard" role="status" aria-live="polite"></p>
+      </section>
+
+      <aside class="hud" aria-label="สถานะตัวละคร">
+        <h2>สถานะ</h2>
+        <div class="stat">
+          <span class="stat-name">พลังชีวิต</span>
+          <div class="bar" role="progressbar" aria-label="พลังชีวิต" aria-valuemin="0"><span id="hp-bar"></span></div>
+          <span id="hp-label" class="stat-value">100 / 100</span>
+        </div>
+        <div class="stat">
+          <span class="stat-name">พลังกังวาน</span>
+          <div class="bar bar-mana" role="progressbar" aria-label="พลังกังวาน" aria-valuemin="0"><span id="mana-bar"></span></div>
+          <span id="mana-label" class="stat-value">60 / 60</span>
+        </div>
+        <div class="stat" hidden>
+          <span class="stat-name">เกราะผลึก</span>
+          <div class="bar bar-shield" role="progressbar" aria-label="เกราะผลึก" aria-valuemin="0"><span id="shield-bar"></span></div>
+          <span id="shield-label" class="stat-value">0</span>
+        </div>
+
+        <h3>ภารกิจ</h3>
+        <p id="quest-text" class="muted"></p>
+
+        <h3>คาถา <span class="muted">(กดเลข 1-9)</span></h3>
+        <ul id="spell-list" class="spell-list"></ul>
+
+        <h3>ย่าม</h3>
+        <ul id="item-list" class="item-list"></ul>
+      </aside>
+    </main>
+
+    <footer class="controls">
+      <button id="mic-button" type="button" class="mic-button">
+        <span aria-hidden="true">🎙️</span> กดค้างเพื่อพูด
+      </button>
+      <form id="command-form" class="command-form">
+        <label for="command-input" class="visually-hidden">พิมพ์คำสั่งภาษาไทย</label>
+        <input id="command-input" type="text" autocomplete="off"
+               placeholder="พิมพ์คำสั่ง เช่น เดินหน้า / สำรวจ / เพลิงกังวาน / คุยกับยายมาลี">
+        <button type="submit">ส่ง</button>
+      </form>
+    </footer>
+
+    <!-- แผงตั้งค่าการเข้าถึง -->
+    <div id="settings-panel" class="settings-panel" hidden role="dialog" aria-label="ตั้งค่าการเข้าถึง">
+      <h2>ตั้งค่า</h2>
+
+      <fieldset>
+        <legend>เสียง</legend>
+        <label>เสียงรวม <input type="range" min="0" max="1" step="0.05" data-setting="master"> <output data-setting-value="master"></output></label>
+        <label>เสียงประกอบ <input type="range" min="0" max="1" step="0.05" data-setting="sfx"> <output data-setting-value="sfx"></output></label>
+        <label>เพลง (ชั่วคราว) <input type="range" min="0" max="1" step="0.05" data-setting="music"> <output data-setting-value="music"></output></label>
+        <label>บรรยากาศ <input type="range" min="0" max="1" step="0.05" data-setting="ambience"> <output data-setting-value="ambience"></output></label>
+        <label>เสียงพูด <input type="range" min="0" max="1" step="0.05" data-setting="voice"> <output data-setting-value="voice"></output></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>เสียงอ่านภาษาไทย</legend>
+        <label><input type="checkbox" data-setting="ttsEnabled"> เปิดเสียงอ่าน</label>
+        <label>ความเร็วการอ่าน <input type="range" min="0.5" max="2" step="0.05" data-setting="ttsRate"> <output data-setting-value="ttsRate"></output></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>ไมโครโฟน</legend>
+        <label>โหมดรับเสียง
+          <select data-setting="micMode">
+            <option value="push">กดค้างเพื่อพูด (แม่นกว่า)</option>
+            <option value="always">ฟังตลอดเวลา</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>การสั่น</legend>
+        <label><input type="checkbox" data-setting="hapticsEnabled"> เปิดการสั่น</label>
+        <label>ความแรง <input type="range" min="0" max="2" step="0.1" data-setting="hapticIntensity"> <output data-setting-value="hapticIntensity"></output></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>การเข้าถึง</legend>
+        <label><input type="checkbox" data-setting="assistAim"> โหมดช่วยเล็ง (ยิงโดนแม้หันไม่ตรงเป๊ะ)</label>
+        <label><input type="checkbox" data-setting="showSoundCaptions"> แสดงคำบรรยายของเสียงประกอบ</label>
+        <label><input type="checkbox" data-setting="highContrast"> โหมดคอนทราสต์สูง</label>
+        <label><input type="checkbox" data-setting="largeText"> ตัวอักษรใหญ่</label>
+        <label><input type="checkbox" data-setting="reduceMotion"> ลดการเคลื่อนไหว</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>เชื่อมต่อโมเดลภาษา (ไม่บังคับ)</legend>
+        <p class="muted small">
+          เกมเล่นจบได้โดยไม่ต้องใช้ AI ภายนอก ถ้าต้องการให้วิสป์และ NPC ตอบได้อิสระขึ้น
+          ให้ใส่ที่อยู่ API ของคุณเอง ข้อมูลนี้เก็บไว้ในเครื่องของคุณเท่านั้น
+        </p>
+        <label>Endpoint <input type="text" data-setting="aiEndpoint" placeholder="https://ตัวอย่าง/v1/messages"></label>
+        <label>Model <input type="text" data-setting="aiModel"></label>
+        <label>API key <input type="password" data-setting="aiKey" autocomplete="off"></label>
+      </fieldset>
+
+      <button id="close-settings" type="button" class="big-button">ปิด</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
